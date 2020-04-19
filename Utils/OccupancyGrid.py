@@ -131,10 +131,13 @@ class OccupancyGrid:
         spokesOffsetIdxByTheta = int(np.rint(theta / (2 * np.pi) * self.numSpokes))
         emptyXList, emptyYList, occupiedXList, occupiedYList = [], [], [], []
         for i in range(self.numSamplesPerRev):
-            spokeIdx = int(np.rint((self.spokesStartIdx + spokesOffsetIdxByTheta + i) % self.numSpokes))
+            spokeIdx = int(np.rint(( self.numSpokes + spokesOffsetIdxByTheta - i) % self.numSpokes))
+            # spokeIdx = int(np.rint((self.spokesStartIdx + spokesOffsetIdxByTheta + i) % self.numSpokes))
             xAtSpokeDir = self.radByX[spokeIdx]
             yAtSpokeDir = self.radByY[spokeIdx]
             rAtSpokeDir = self.radByR[spokeIdx]
+            if rMeasure[i] == -1:
+                continue
             if rMeasure[i] < self.lidarMaxRange:
                 emptyIdx = np.argwhere(rAtSpokeDir < rMeasure[i] - self.wallThickness / 2)
             else:
@@ -182,31 +185,36 @@ def updateTrajectoryPlot(matchedReading, xTrajectory, yTrajectory, colors, count
         plt.scatter(x, y, color=next(colors), s=35)
 
 def main():
-    initMapXLength, initMapYLength, unitGridSize, lidarFOV, lidarMaxRange = 10, 10, 0.02, np.pi, 10 # in Meters
+    initMapXLength, initMapYLength, unitGridSize, lidarFOV, lidarMaxRange = 10, 10, 0.1, 2 * np.pi, 200 # in Meters
     wallThickness = 7 * unitGridSize
-    jsonFile = "../DataSet/PreprocessedData/intel_gfs"
+    jsonFile = "/home/sukie/Desktop/dd_scene3/train/ogm-re/data_2.json"
     with open(jsonFile, 'r') as f:
         input = json.load(f)
-        sensorData = input['map']
+        sensorData = input # input['map']
+        print("[DYP] Data loading finished.")
     numSamplesPerRev = len(sensorData[list(sensorData)[0]]['range'])  # Get how many points per revolution
-    initXY = sensorData[sorted(sensorData.keys())[0]]
+    keys = sorted(list(map(int, sensorData.keys())), reverse=False)
+    initXY = sensorData[str(keys[0])]
     og = OccupancyGrid(initMapXLength, initMapYLength, initXY, unitGridSize, lidarFOV, numSamplesPerRev, lidarMaxRange, wallThickness)
+    print("[DYP] Model building finished.")
     count = 0
-    plt.figure(figsize=(19.20, 19.20))
+    plt.figure(figsize=(38.80, 38.80))
+    # plt.figure(figsize=(38.40, 38.40))
     xTrajectory, yTrajectory = [], []
     colors = iter(cm.rainbow(np.linspace(1, 0, len(sensorData) + 1)))
-    for key in sorted(sensorData.keys()):
+    for key in keys:
+        print(key)
         count += 1
-        og.updateOccupancyGrid(sensorData[key])
-        updateTrajectoryPlot(sensorData[key], xTrajectory, yTrajectory, colors, count)
-        #if count == 100:
-        #   break
+        og.updateOccupancyGrid(sensorData[str(key)], dTheta= 1.0 * np.pi)
+        updateTrajectoryPlot(sensorData[str(key)], xTrajectory, yTrajectory, colors, count)
 
     plt.scatter(xTrajectory[0], yTrajectory[0], color='r', s=500)
     plt.scatter(xTrajectory[-1], yTrajectory[-1], color=next(colors), s=500)
     plt.plot(xTrajectory, yTrajectory)
-    #og.plotOccupancyGrid([-12, 20], [-23.5, 7])
+    og.plotOccupancyGrid([-200, 800], [-150, 1350])
+    # og.plotOccupancyGrid([-350, 80], [-10, 380])
     #og.plotOccupancyGrid(xRange =[-11.9, 20], yRange =[-23.5, 6.    og.plotOccupancyGrid()
+    plt.show()
 
 if __name__ == '__main__':
     main()
